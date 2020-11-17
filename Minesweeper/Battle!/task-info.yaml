@@ -1,0 +1,929 @@
+type: edu
+custom_name: stage5
+files:
+- name: src/minesweeper/Main.java
+  visible: true
+  text: |
+    package minesweeper;
+
+    public class Main {
+        public static void main(String[] args) {
+            // write your code here
+        }
+    }
+  learner_created: false
+- name: test/MinesweeperTest.java
+  visible: false
+  text: |
+    import minesweeper.Main;
+    import org.hyperskill.hstest.stage.StageTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+    import org.hyperskill.hstest.testcase.TestCase;
+
+    import java.util.*;
+
+    import static java.lang.Math.abs;
+
+    class Grid {
+
+        char[][] rows;
+        Grid(String[] rows) throws Exception {
+            this.rows = new char[rows.length][];
+            for (int i = 0; i < rows.length; i++) {
+                this.rows[i] = rows[i].toCharArray();
+                for (char c : this.rows[i]) {
+                    if (c != '/'
+                        && c != 'x'
+                        && c != '.'
+                        && c != '*'
+                        && !(c >= '0' && c <= '9')) {
+                        throw new Exception(
+                            "A row of the grid should contain " +
+                                "'/', 'X', '.' or '*' or numbers. \n" +
+                                "Found: '" + c + "' in row \"" + rows[i] + "\""
+                        );
+                    }
+                }
+            }
+        }
+
+        @Override
+        public String toString() {
+            String res = "";
+            for (int i = 0; i < this.rows.length; i++) {
+                res += new String(this.rows[i]) + "\n";
+            }
+            return res.trim();
+        }
+
+        int count(char c) {
+            int sum = 0;
+            for (char[] row : rows) {
+                for (char ch : row) {
+                    sum += ch == c ? 1 : 0;
+                }
+            }
+            return sum;
+        }
+
+        int countAround(int x, int y, char c) {
+            int[] around = new int[] {-1, 0, 1};
+            int count = 0;
+            for (int dx : around) {
+                for (int dy : around) {
+
+                    int newX = x + dx;
+                    int newY = y + dy;
+
+                    if (1 <= newX && newX <= 9 &&
+                        1 <= newY && newY <= 9) {
+                        if (get(newX, newY) == c) {
+                            count++;
+                        }
+                    }
+                }
+            }
+            return count;
+        }
+
+        int distanceToCenter(int x, int y) {
+            return abs(x - 5) + abs(y - 5);
+        }
+
+        void replaceAround(int x, int y, char from, char to) {
+            int[] around = new int[] {-1, 0, 1};
+            int count = 0;
+            for (int dx : around) {
+                for (int dy : around) {
+
+                    int newX = x + dx;
+                    int newY = y + dy;
+
+                    if (1 <= newX && newX <= 9 &&
+                        1 <= newY && newY <= 9) {
+                        if (get(newX, newY) == from) {
+                            set(newX, newY, to);
+                        }
+                    }
+                }
+            }
+        }
+
+        char get(int x, int y) {
+            return rows[y-1][x-1];
+        }
+
+        void set(int x, int y, char c) {
+            rows[y-1][x-1] = c;
+        }
+
+        Grid copy() {
+            String[] rows = new String[this.rows.length];
+            for (int i = 0; i < this.rows.length; i++) {
+                rows[i] = new String(this.rows[i]);
+            }
+            try {
+                return new Grid(rows);
+            } catch (Exception ex) {
+                return null;
+            }
+        }
+
+        int differences(Grid other) {
+            int diff = 0;
+            for (int x = 1; x <= 9; x++) {
+                for (int y = 1; y <= 9; y++) {
+                    diff += get(x, y) != other.get(x, y) ? 1 : 0;
+                }
+            }
+            return diff;
+        }
+
+        void checkField(boolean withRealMines) throws Exception {
+            for (int x = 1; x <= 9; x++) {
+                for (int y = 1; y <= 9; y++) {
+                    char c = get(x, y);
+                    if (!withRealMines && c == 'x') {
+                        throw new Exception(
+                            "The word \"failed\" was not found, " +
+                                "but the last grid contains 'X' characters. " +
+                                "This should not be the case."
+                        );
+                    }
+                    if (c == '/') {
+                        int dotsAround = countAround(x, y, '.');
+                        if (dotsAround != 0) {
+                            throw new Exception(
+                                "The last grid contains '.' and '/' " +
+                                    "characters that are next to each other. " +
+                                    "This situation is impossible."
+                            );
+                        }
+                        if (withRealMines) {
+                            int minesAround = countAround(x, y, 'x');
+                            if (minesAround != 0) {
+                                throw new Exception(
+                                    "The last grid contains 'X' and '/' " +
+                                        "characters that are next to each other. " +
+                                        "This situation is impossible."
+                                );
+                            }
+                        }
+                    }
+                    if (c >= '1' && c <= '9') {
+                        int num = c - '0';
+                        int freePlacesAround =
+                            countAround(x, y, '.') +
+                                countAround(x, y, '*');
+
+                        if (withRealMines) {
+                            freePlacesAround += countAround(x, y, 'x');
+                        }
+
+                        if (num > freePlacesAround) {
+                            throw new Exception(
+                                "There is a number " + num + " in the last grid, " +
+                                    "but there are fewer free fields " +
+                                    "around which to put a mine. " +
+                                    "This situation is impossible."
+                            );
+                        }
+                    }
+                    if (c == '*') {
+                        int guaranteedEmptyAround = countAround(x, y, '/');
+                        if (guaranteedEmptyAround != 0) {
+                            throw new Exception(
+                                "The last grid contains '*' and '/' " +
+                                    "characters that are next to each other. " +
+                                    "This situation is impossible. If there is " +
+                                    "'*' character that is " +
+                                    "next to '/' it should be replaced to '/' " +
+                                    "or to a number."
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        void checkMiddleGame() throws Exception {
+            checkField(false);
+        }
+
+        void checkFail() throws Exception {
+            checkField(true);
+        }
+
+        static List<Grid> parse(String output) throws Exception {
+
+            output = output.replaceAll("│", "|");
+            output = output.replaceAll("—", "-");
+
+            List<Grid> grids = new LinkedList<>();
+            String[] lines = output.split("\n");
+
+            boolean gridStarted = false;
+            List<String> newGrid = new LinkedList<>();
+            for (String line : lines) {
+                line = line.trim();
+                if (line.contains("-|--")) {
+                    gridStarted = !gridStarted;
+                    if (gridStarted) {
+                        newGrid = new LinkedList<>();
+                    } else {
+                        if (newGrid.size() != 9) {
+                            throw new Exception(
+                                "Found grid that contains " + newGrid.size() +
+                                    " but grid should contain 9 lines. \n" +
+                                    "The tests assume that the grid is " +
+                                    "between the lines containing the line \"-│--\"."
+                            );
+                        }
+                        grids.add(
+                            new Grid(newGrid.toArray(new String[0]))
+                        );
+                    }
+                    continue;
+                }
+                if (gridStarted) {
+
+                    char toFind = '|';
+
+                    long countBrackets =
+                        line.chars().filter(c -> c == toFind).count();
+
+                    if (countBrackets != 2) {
+                        throw new Exception(
+                            "Grid should contain " +
+                                "two '|' symbols, at the beginning " +
+                                "(after row number) " +
+                                "and at the end of the row. \n" +
+                                "Your line: \"" + line + "\"."
+                        );
+                    }
+
+                    int first = line.indexOf(toFind) + 1;
+                    int second = line.indexOf(toFind, first);
+
+                    int rowSize = second - first;
+
+                    if (rowSize != 9) {
+                        throw new Exception(
+                            "Every row of the grid should contain " +
+                                "9 symbols between '|' chars. \nThis line has " +
+                                rowSize + " symbols: \"" + line + "\"."
+                        );
+                    }
+
+                    String row = line.substring(first, second);
+
+                    newGrid.add(row);
+                }
+            }
+
+            return grids;
+        }
+
+    }
+
+    class Coords {
+        int x;
+        int y;
+        Coords(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
+    enum FirstPressStatus {
+        NOT_PRESSED_FREE, PRESSED_FREE, VERIFIED_OK
+    }
+
+    class State {
+        int minesCount = 0;
+        FirstPressStatus isStart = FirstPressStatus.NOT_PRESSED_FREE;
+        List<Coords> marks = new ArrayList<>();
+    }
+
+    public class MinesweeperTest extends StageTest<State> {
+
+        public MinesweeperTest() {
+            super(Main.class);
+        }
+
+        @Override
+        public List<TestCase<State>> generate() {
+            List<TestCase<State>> tests = new ArrayList<>();
+
+            for (int i = 1; i < 70; i += i < 10 ? 1 : 5) {
+                for (int j = 0; j < (i < 5 ? 20 : 2); j++) {
+                    State state = new State();
+                    state.minesCount = i;
+                    tests.add(new TestCase<State>()
+                        .addInput("" + i)
+                        .addInfInput(out -> createDynamicInput(out, state))
+                        .setAttach(state)
+                    );
+                }
+            }
+            return tests;
+        }
+
+        private Object createDynamicInput(String out, State state) {
+            out = out.trim().toLowerCase();
+
+            List<Grid> grids;
+            try {
+                grids = Grid.parse(out);
+            } catch (Exception ex) {
+                return CheckResult.wrong(ex.getMessage());
+            }
+
+            if (grids.size() == 0) {
+                return CheckResult.wrong(
+                    "Cannot find a field after the last input. Make sure you output " +
+                        "this field using '|' and '-' characters."
+                );
+            }
+
+            Grid grid = grids.get(0);
+
+            state.marks.removeIf(elem -> {
+                char c = grid.get(elem.x, elem.y);
+                boolean isGuaranteedEmptyNow = c == '/';
+                boolean isNumberNow = c >= '1' && c <= '9';
+                boolean isFailed = c == 'x';
+                return isGuaranteedEmptyNow || isNumberNow || isFailed;
+            });
+
+            boolean isFailed = out.contains("failed");
+            boolean isWin = out.contains("congratulations");
+
+            int starCount = grid.count('*');
+            int shouldBeStars = state.marks.size();
+            if (starCount != shouldBeStars && !isFailed && !isWin) {
+                return CheckResult.wrong(
+                    "There should be " + shouldBeStars + " '*' " +
+                        "symbol" + (starCount > 1? "s": "") + " in the last " +
+                        "grid. Found: " + starCount
+                );
+            }
+            if (isFailed) {
+                if (state.isStart != FirstPressStatus.VERIFIED_OK) {
+                    return CheckResult.wrong(
+                        "The user should not lose after the first \"free\" move."
+                    );
+                }
+                try {
+                    grid.checkFail();
+                    int minesCount = grid.count('x');
+                    if (minesCount != state.minesCount) {
+                        return CheckResult.wrong(
+                            "There " + (minesCount > 1? "are" : "is") +
+                                " " + minesCount + " mine" + (minesCount > 1? "s": "") +
+                                " in the last grid marked 'X'. " +
+                                "But initially the user " +
+                                "entered " + state.minesCount + " mine" +
+                                (state.minesCount > 1? "s": "") +". " +
+                                "Every real mine should be marked as 'X' at the end " +
+                                "in case of failure."
+                        );
+                    }
+                    return CheckResult.correct();
+                } catch (Exception ex) {
+                    return CheckResult.wrong(ex.getMessage());
+                }
+            }
+
+            if (state.isStart == FirstPressStatus.PRESSED_FREE) {
+                state.isStart = FirstPressStatus.VERIFIED_OK;
+            }
+
+            try {
+                grid.checkMiddleGame();
+            } catch (Exception ex) {
+                return CheckResult.wrong(ex.getMessage());
+            }
+
+            if (isWin) {
+                int freeCellsCount = grid.count('.') + grid.count('*');
+                if (freeCellsCount != state.minesCount &&
+                    state.marks.size() != state.minesCount) {
+                    return CheckResult.wrong(
+                        "The word \"congratulations\" was found, " +
+                            "but not every mine was found. \n" +
+                            "Mines to find: " + state.minesCount + "\n" +
+                            "Free cells left: " + freeCellsCount
+
+                    );
+                }
+                return CheckResult.correct();
+            }
+
+            Random random = new Random();
+
+            int dotsCount = grid.count('.');
+
+            if (starCount != 0 && (random.nextInt(4) == 0 || dotsCount == 0)) {
+                int nextMine = random.nextInt(state.marks.size());
+                Coords mineToRemove = state.marks.get(nextMine);
+                state.marks.remove(mineToRemove);
+                int x = mineToRemove.x;
+                int y = mineToRemove.y;
+                return x + " " + y + " mine";
+            }
+
+            if (dotsCount == 0) {
+                return CheckResult.wrong(
+                    "There are no '.' cells in the field, " +
+                        "but the game is not over. Something is wrong."
+                );
+            }
+
+            while (true) {
+                int x = 1 + random.nextInt(9);
+                int y = 1 + random.nextInt(9);
+
+                char c = grid.get(x, y);
+                if (c == '.') {
+                    boolean isMine = random.nextInt(3) == 0;
+                    if (isMine) {
+                        state.marks.add(new Coords(x, y));
+                        return x + " " + y + " mine";
+                    } else {
+                        if (state.isStart == FirstPressStatus.NOT_PRESSED_FREE) {
+                            state.isStart = FirstPressStatus.PRESSED_FREE;
+                        }
+                        return x + " " + y + " free";
+                    }
+                }
+            }
+        }
+
+        @Override
+        public CheckResult check(String reply, State attach) {
+            reply = reply.toLowerCase();
+
+            boolean isFailed = reply.contains("failed");
+            boolean isWin = reply.contains("congratulations");
+
+            if (!isFailed && !isWin) {
+                return CheckResult.wrong(
+                    "No words " +
+                        "\"congratulations\" or \"failed\" were found. " +
+                        "The program must end in one of these ways."
+                );
+            }
+
+            return CheckResult.correct();
+        }
+    }
+  learner_created: false
+- name: src/minesweeper/FieldGenerator.java
+  visible: true
+  text: |
+    package minesweeper;
+
+    import java.util.Arrays;
+    import java.util.Random;
+
+    public class FieldGenerator {
+        Random random = new Random();
+
+
+       public String[][] generate(int height, int width, int numberOfMines) {
+            String[][] field = new String[height][width];
+            if (numberOfMines == 0) {
+                for (int i = 0; i < height; i++) {
+                    for (int j = 0; j < width; j++) {
+                            field[i][j] = ".";
+                        }
+                    }
+            } else {
+                int[] coordinatesOfMines = massOfRandomNumber(numberOfMines, height * width);
+                Arrays.sort(coordinatesOfMines);
+                int index = 0;
+                for (int i = 0; i < height; i++) {
+                    for (int j = 0; j < width; j++) {
+                        if (index < coordinatesOfMines.length && i == coordinatesOfMines[index] / height && j == (coordinatesOfMines[index] % width)) {
+                            field[i][j] = "X";
+                            index++;
+                        } else {
+                            field[i][j] = ".";
+                        }
+                    }
+                }
+            }
+
+                return field;
+
+        }
+
+        public int[] massOfRandomNumber(int numberOfMines, int numberOfCells) {
+            int[] mass = new int[numberOfMines];
+            mass[0] = random.nextInt(numberOfCells);
+            for (int i = 1; i < numberOfMines; i++) {
+               mass[i] = random.nextInt(numberOfCells);
+               while (searchDouble(Arrays.copyOf(mass, i),  mass[i])) {
+                   mass[i] = random.nextInt(numberOfCells);
+               }
+            }
+            return mass;
+        }
+
+        private boolean searchDouble(int[] array, int number) {
+            boolean answer = false;
+            for (int n : array) {
+                if (n == number) {
+                    answer = true;
+                    break;
+                }
+            }
+            return answer;
+        }
+    }
+  learner_created: true
+- name: src/minesweeper/FieldPrinter.java
+  visible: true
+  text: |
+    package minesweeper;
+
+    public class FieldPrinter {
+
+        public void print(String[][] field) {
+            for (String[] mass : field) {
+                for (String s : mass) {
+                    System.out.print(s);
+                }
+                System.out.println();
+            }
+        }
+
+        public void printWithFrame(String[][] field) {
+            System.out.print(" |");
+            for (int i = 1; i <= field.length; i++) {
+                System.out.print(i);
+            }
+            System.out.print("|");
+            System.out.println();
+
+            System.out.print("-|");
+            for (int i = 0; i < field[0].length; i++) {
+                System.out.print("-");
+            }
+            System.out.print("|");
+            System.out.println();
+
+            for (int i = 0; i < field.length; i++) {
+                System.out.print((i + 1) + "|");
+                for (int j = 0; j < field[0].length; j++) {
+                    System.out.print(field[i][j]);
+                }
+                System.out.print("|");
+                System.out.println();
+            }
+
+            System.out.print("-|");
+            for (int i = 0; i < field.length; i++) {
+                System.out.print("-");
+            }
+            System.out.print("|");
+
+            System.out.println();
+        }
+
+    }
+  learner_created: true
+- name: src/minesweeper/GameField.java
+  visible: true
+  text: |
+    package minesweeper;
+
+    import java.sql.Struct;
+
+    public class GameField {
+        String[][] simpleField;
+        String[][] fieldWithNumbers;
+        String[][] fieldWithoutX;
+        int height;
+        int width;
+        int numberOfMines;
+        FieldProcessor processor = new FieldProcessor();
+        FieldGenerator generator = new FieldGenerator();
+        FieldPrinter printer = new FieldPrinter();
+
+        GameField(int height, int width, int numberOfMines) {
+            this.height = height;
+            this.width = width;
+            this.numberOfMines = numberOfMines;
+            simpleField = generator.generate(height, width, numberOfMines);
+            fieldWithNumbers = processor.processedField(simpleField);
+            fieldWithoutX = processor.fieldWithoutX(fieldWithNumbers);
+        }
+
+        public boolean isCellNotNumber(int row, int column) {
+            return ".".equals(fieldWithoutX[row][column]) || "*".equals(fieldWithoutX[row][column]);
+        }
+
+        public void markCell(int row, int column) {
+            if ("*".equals(fieldWithoutX[row][column])) {
+                fieldWithoutX[row][column] = ".";
+            } else {
+                fieldWithoutX[row][column] = "*";
+            }
+        }
+
+        private boolean isStarEqualsX() {
+            int count = 0;
+            for (String[] mass : fieldWithoutX) {
+                for (String s : mass) {
+                    if ("*".equals(s)) {
+                        count++;
+                    }
+                }
+            }
+            return count == numberOfMines;
+        }
+
+        public boolean isGameEnd() {
+            if (isStarEqualsX()) {
+                for (int i = 0; i < height; i++) {
+                    for (int j = 0; j < width; j++) {
+                        if (!compareIksWithStar(simpleField[i][j], fieldWithoutX[i][j])) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            } else {
+                return false;
+            }
+            return false;
+        }
+
+        private boolean compareIksWithStar(String iks, String star) {
+            if ("X".equals(iks) && "*".equals(star)) {
+                return true;
+            } else if (!"X".equals(iks) && !"*".equals(star)) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+    }
+  learner_created: true
+- name: src/minesweeper/GameLoop.java
+  visible: true
+  text: |
+    package minesweeper;
+
+    import java.util.Scanner;
+
+    public class GameLoop {
+        GameField field;
+        Scanner scanner = new Scanner(System.in);
+        FieldPrinter printer = new FieldPrinter();
+
+        public void loop() {
+            System.out.print("How many mines do you want on the field?");
+            int numberOfMines = scanner.nextInt();
+            field = new GameField(9, 9, numberOfMines);
+            int row;
+            int column;
+
+            printer.printWithFrame(field.fieldWithoutX);
+            while (true) {
+
+
+                while (true) {
+                    System.out.print("Set/delete mines marks (x and y coordinates):");
+                    column = scanner.nextInt();
+                    row = scanner.nextInt();
+                    if (field.isCellNotNumber(row - 1, column - 1)) {
+                        field.markCell(row - 1, column - 1);
+                        break;
+                    } else {
+                        System.out.println("There is a number here!");
+                    }
+                }
+                printer.printWithFrame(field.fieldWithoutX);
+                if (field.isGameEnd()) {
+                    System.out.println("Congratulations! You found all mines!");
+                    break;
+                }
+            }
+        }
+    }
+  learner_created: true
+- name: src/minesweeper/FieldUtils.java
+  visible: true
+  text: |
+    package minesweeper;
+
+    public class FieldUtils {
+
+        public boolean isBottom(String[][] field, int row) {
+            return (field.length == row + 1);
+        }
+
+        public boolean isCeiling(int row) {
+            return (row == 0);
+        }
+
+        public boolean isLeft(int column) {
+            return (column == 0);
+        }
+
+        public boolean isRight(String[][] field, int column) {
+            return (field[0].length == column + 1);
+        }
+    }
+  learner_created: true
+- name: src/minesweeper/FieldProcessor.java
+  visible: true
+  text: |
+    package minesweeper;
+
+    public class FieldProcessor {
+        FieldUtils utils = new FieldUtils();
+
+        public String[][] processedField(String[][] field) {
+            String[][] answer = new String[field.length][field[0].length];
+            for (int i = 0; i < field.length; i++) {
+                for (int j = 0; j < field[0].length; j++) {
+                    if ("X".equals(field[i][j])) {
+                        answer[i][j] = "X";
+                    } else if (utils.isCeiling(i) && utils.isLeft(j)) {
+                        answer[i][j] = Integer.toString(countForLeftUpCorner(field));
+                    } else if (utils.isCeiling(i) && utils.isRight(field, j)) {
+                        answer[i][j] = Integer.toString(countForRightUpCorner(field));
+                    } else if (utils.isBottom(field, i) && utils.isRight(field, j)) {
+                        answer[i][j] = Integer.toString(countForRightDownCorner(field));
+                    } else if (utils.isBottom(field, i) && utils.isLeft(j)) {
+                        answer[i][j] = Integer.toString(countForLeftDownCorner(field));
+                    } else if (utils.isBottom(field, i)) {
+                        answer[i][j] = Integer.toString(countForBottom(field, j));
+                    } else if (utils.isCeiling(i)) {
+                        answer[i][j] = Integer.toString(countForCeiling(field, j));
+                    } else if (utils.isRight(field, j)) {
+                        answer[i][j] = Integer.toString(countForRight(field, i));
+                    } else if (utils.isLeft(j)) {
+                        answer[i][j] = Integer.toString(countForLeft(field, i));
+                    } else {
+                        answer[i][j] = Integer.toString(countForCenter(field, i, j));
+                    }
+                }
+            }
+            for (int i = 0; i < answer.length; i++) {
+                for (int j = 0; j < answer[0]. length; j++) {
+                    if ("0".equals(answer[i][j])) {
+                        answer[i][j] = ".";
+                    }
+                }
+            }
+            return answer;
+        }
+
+        private int countForLeftUpCorner(String[][] field) {
+            int sum = 0;
+            if ("X".equals(field[0][1])) {
+                sum++;
+            }
+            if ("X".equals(field[1][0])) {
+                sum++;
+            }
+            if ("X".equals(field[1][1])) {
+                sum++;
+            }
+            return sum;
+        }
+
+        private int countForLeftDownCorner(String[][] field) {
+            int sum = 0;
+            if ("X".equals(field[field.length - 1][1])) {
+                sum++;
+            }
+            if ("X".equals(field[field.length - 2][0])) {
+                sum++;
+            }
+            if ("X".equals(field[field.length - 2][1])) {
+                sum++;
+            }
+            return sum;
+        }
+
+        private int countForRightDownCorner(String[][] field) {
+            int sum = 0;
+            if ("X".equals(field[field.length - 1][field[0].length - 2])) {
+                sum++;
+            }
+            if ("X".equals(field[field.length - 2][field[0].length - 1])) {
+                sum++;
+            }
+            if ("X".equals(field[field.length - 2][field[0].length - 2])) {
+                sum++;
+            }
+            return sum;
+        }
+
+        private int countForRightUpCorner(String[][] field) {
+            int sum = 0;
+            if ("X".equals(field[0][field[0].length - 2])) {
+                sum++;
+            }
+            if ("X".equals(field[1][field[0].length - 1])) {
+                sum++;
+            }
+            if ("X".equals(field[1][field[0].length - 2])) {
+                sum++;
+            }
+            return sum;
+        }
+
+        private int countForBottom(String[][] field, int column) {
+            int sum = 0;
+            for (int i = field.length - 2; i < field.length; i++) {
+                for (int j = column - 1; j <= column + 1; j++) {
+                    if ("X".equals(field[i][j])) {
+                        sum++;
+                    }
+                }
+            }
+            return sum;
+        }
+
+        private int countForCeiling(String[][] field, int column) {
+            int sum = 0;
+            for (int i = 0; i <= 1; i++) {
+                for (int j = column - 1; j <= column + 1; j++) {
+                    if ("X".equals(field[i][j])) {
+                        sum++;
+                    }
+                }
+            }
+            return sum;
+        }
+
+        private int countForLeft(String[][] field, int row) {
+            int sum = 0;
+            for (int i = row - 1; i <= row + 1; i++) {
+                for (int j = 0; j <= 1; j++) {
+                    if ("X".equals(field[i][j])) {
+                        sum++;
+                    }
+                }
+            }
+            return sum;
+        }
+
+        private int countForRight(String[][] field, int row) {
+            int sum = 0;
+            for (int i = row - 1; i <= row + 1; i++) {
+                for (int j = field[0].length - 2; j <= field[0].length - 1; j++) {
+                    if ("X".equals(field[i][j])) {
+                        sum++;
+                    }
+                }
+            }
+            return sum;
+        }
+
+        private int countForCenter(String[][] field, int row, int column) {
+            int sum = 0;
+            for (int i = row - 1; i <= row + 1; i++) {
+                for (int j = column - 1; j <= column + 1; j++) {
+                    if ("X".equals(field[i][j])) {
+                        sum++;
+                    }
+                }
+            }
+            return sum;
+        }
+
+        public String[][] fieldWithoutX(String[][] fieldWithNumbers) {
+            String[][] answer = new String[fieldWithNumbers.length][fieldWithNumbers[0].length];
+            for (int i = 0; i < answer.length; i++) {
+                for (int j = 0; j < answer[0].length; j++) {
+                    if (fieldWithNumbers[i][j] == "X") {
+                        answer[i][j] = ".";
+                    } else {
+                        answer[i][j] = fieldWithNumbers[i][j];
+                    }
+                }
+            }
+            return answer;
+        }
+
+    }
+  learner_created: true
+- name: src/minesweeper/FieldForUser.java
+  visible: true
+  learner_created: true
+feedback_link: https://hyperskill.org/projects/77/stages/430/implement
+status: Solved
+feedback:
+  message: Congratulations! Continue on <a href="https://hyperskill.org/projects/77/stages/430/implement">JetBrains
+    Academy</a>
+  time: Tue, 22 Sep 2020 07:16:07 UTC
+record: -1

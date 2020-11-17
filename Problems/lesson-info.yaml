@@ -1,0 +1,21 @@
+content:
+- Return empty string when argument is null
+- Avoid NPE
+- Only true or false
+- Safe converting
+- Pastry packing optimization
+- Output the list's elements
+- Creating list
+- Find the nearest number
+- Concat positive numbers
+- Boxes are not just objects!
+- Squares list
+- Blacklist
+- Working with queue
+- Which brackets are balanced
+- Html Parser
+- Creating queue
+- The LIFO principle in action
+- Even numbers go first
+- Greedy load balance
+- Getting the max element of a stack
